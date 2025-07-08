@@ -8,11 +8,11 @@ hello_world()
 
 # --- Another simple example: A function that adds two numbers ---
 
-def add_numbers(a, b):
+def add_numbers(a. b):
     """
     This function takes two numbers as input and returns their sum.
     """
-    return a + b
+    return a
 
 # Call the function with some values
 num1 = 10
