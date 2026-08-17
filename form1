@@ -1,0 +1,157 @@
+const data = $json.report || [];
+const reportDate = $json.reportDate || '';
+
+let rows = '';
+
+for (const item of data) {
+
+  rows += `
+    <tr>
+      <td>${item.SITE}</td>
+      <td>${item.P2}</td>
+      <td>${item.P3}</td>
+      <td>${item.Scrap}</td>
+      <td><b>${item.Total}</b></td>
+    </tr>
+  `;
+}
+
+
+// Grand totals
+const totalP2 = data.reduce((sum, x) => sum + Number(x.P2 || 0), 0);
+const totalP3 = data.reduce((sum, x) => sum + Number(x.P3 || 0), 0);
+const totalScrap = data.reduce((sum, x) => sum + Number(x.Scrap || 0), 0);
+const grandTotal = data.reduce((sum, x) => sum + Number(x.Total || 0), 0);
+
+
+const html = `
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<style>
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14px;
+}
+
+h2 {
+    margin-bottom: 5px;
+}
+
+.info {
+    margin-bottom: 15px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th {
+    background-color: #d9eaf7;
+    border: 1px solid #555;
+    padding: 10px;
+    text-align: center;
+    font-weight: bold;
+}
+
+td {
+    border: 1px solid #777;
+    padding: 8px;
+    text-align: center;
+}
+
+td:first-child {
+    text-align: left;
+    font-weight: bold;
+}
+
+.total-row {
+    background-color: #eeeeee;
+    font-weight: bold;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h2>Server Phase Status Report</h2>
+
+<div class="info">
+Report generated: ${reportDate}
+</div>
+
+<table>
+
+<thead>
+
+<tr>
+    <th>SITE</th>
+
+    <th>
+        Phase 2<br>
+        (data wipe) and Nlyte
+    </th>
+
+    <th>
+        Phase 3<br>
+        (remove DNS and Intersight)
+    </th>
+
+    <th>
+        Scrap
+    </th>
+
+    <th>
+        Total
+    </th>
+</tr>
+
+</thead>
+
+<tbody>
+
+${rows}
+
+<tr class="total-row">
+
+    <td>GRAND TOTAL</td>
+
+    <td>${totalP2}</td>
+
+    <td>${totalP3}</td>
+
+    <td>${totalScrap}</td>
+
+    <td>${grandTotal}</td>
+
+</tr>
+
+</tbody>
+
+</table>
+
+<br>
+
+Regards,<br>
+Automation Team
+
+</body>
+
+</html>
+`;
+
+
+return [
+  {
+    json: {
+      subject: `Server Phase Status Report - ${new Date().toLocaleDateString('en-IN')}`,
+      html
+    }
+  }
+];
