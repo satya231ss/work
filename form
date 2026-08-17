@@ -1,0 +1,119 @@
+const phaseSources = [
+  { phase: 'P2', node: 'P2 data' },
+  { phase: 'P3', node: 'P3 data' },
+  { phase: 'Scrap', node: 'P3 data1' }
+];
+
+const result = {};
+
+// Read all phase data
+for (const source of phaseSources) {
+
+  let rows = [];
+
+  try {
+    rows = $(source.node).all().map(item => item.json);
+  } catch (error) {
+    rows = [];
+  }
+
+  for (const row of rows) {
+
+    const site = String(
+      row.SITE ??
+      row.site ??
+      row.site_code ??
+      ''
+    ).trim();
+
+    if (!site) continue;
+
+    const machineType = String(
+      row.machine_type ??
+      row.MACHINE_TYPE ??
+      row.device_type ??
+      row.type ??
+      ''
+    ).trim().toLowerCase();
+
+    // Create site record
+    if (!result[site]) {
+      result[site] = {
+        SITE: site,
+        P2: 0,
+        P3: 0,
+        Scrap: 0,
+        TOTAL: 0,
+
+        // Optional detailed counts
+        P2_ESX: 0,
+        P2_NON_ESX: 0,
+        P2_NETWORK: 0,
+
+        P3_ESX: 0,
+        P3_NON_ESX: 0,
+        P3_NETWORK: 0,
+
+        Scrap_ESX: 0,
+        Scrap_NON_ESX: 0,
+        Scrap_NETWORK: 0
+      };
+    }
+
+    // Phase count
+    result[site][source.phase]++;
+    result[site].TOTAL++;
+
+    // Category count
+    if (
+      machineType.includes('esx') &&
+      !machineType.includes('non')
+    ) {
+
+      result[site][`${source.phase}_ESX`]++;
+
+    } else if (
+      machineType.includes('non-esx') ||
+      machineType.includes('non esx') ||
+      machineType.includes('non_esx')
+    ) {
+
+      result[site][`${source.phase}_NON_ESX`]++;
+
+    } else if (
+      machineType.includes('network') ||
+      machineType.includes('network device')
+    ) {
+
+      result[site][`${source.phase}_NETWORK`]++;
+
+    }
+  }
+}
+
+
+// ------------------------------------
+// Create ONE row per SITE
+// ------------------------------------
+
+const output = Object.values(result)
+  .sort((a, b) => a.SITE.localeCompare(b.SITE))
+  .map(row => {
+
+    return {
+      json: {
+        SITE: row.SITE,
+
+        'Phase 2 (data wipe) and Nlyte': row.P2,
+
+        'Phase 3 (remove DNS and Intersight)': row.P3,
+
+        'Scrap': row.Scrap,
+
+        'Total': row.TOTAL
+      }
+    };
+
+  });
+
+return output;
