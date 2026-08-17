@@ -1,0 +1,198 @@
+// ==========================================
+// CONSOLIDATED DECOMMISSION REPORT
+// One n8n item + one HTML table
+// ==========================================
+
+const items = $input.all();
+
+const phases = ['P0', 'P1', 'P2', 'P3', 'Scrap'];
+
+const data = {};
+
+for (const phase of phases) {
+  data[phase] = {
+    Phase: phase,
+    'BM(ESX)': 0,
+    'BM(Non-ESX)': 0,
+    'Network Device': 0,
+    TOTAL: 0
+  };
+}
+
+// Process ALL SITE records
+for (const item of items) {
+
+  const row = item.json;
+
+  const phase = String(
+    row.PHASE ?? row.Phase ?? ''
+  ).trim();
+
+  if (!data[phase]) {
+    continue;
+  }
+
+  const bmEsx = Number(
+    String(row['BM(ESX)'] ?? 0).replace(/,/g, '')
+  ) || 0;
+
+  const bmNonEsx = Number(
+    String(row['BM(Non-ESX)'] ?? 0).replace(/,/g, '')
+  ) || 0;
+
+  const networkDevice = Number(
+    String(row['Network Device'] ?? 0).replace(/,/g, '')
+  ) || 0;
+
+  data[phase]['BM(ESX)'] += bmEsx;
+  data[phase]['BM(Non-ESX)'] += bmNonEsx;
+  data[phase]['Network Device'] += networkDevice;
+
+  data[phase]['TOTAL'] =
+    data[phase]['BM(ESX)'] +
+    data[phase]['BM(Non-ESX)'] +
+    data[phase]['Network Device'];
+}
+
+
+// ==========================================
+// GRAND TOTAL
+// ==========================================
+
+const grandTotal = {
+  Phase: 'TOTAL',
+  'BM(ESX)': 0,
+  'BM(Non-ESX)': 0,
+  'Network Device': 0,
+  TOTAL: 0
+};
+
+for (const phase of phases) {
+
+  grandTotal['BM(ESX)'] += data[phase]['BM(ESX)'];
+  grandTotal['BM(Non-ESX)'] += data[phase]['BM(Non-ESX)'];
+  grandTotal['Network Device'] += data[phase]['Network Device'];
+  grandTotal.TOTAL += data[phase].TOTAL;
+}
+
+
+// ==========================================
+// CREATE ONE HTML TABLE
+// ==========================================
+
+let html = `
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+}
+
+h2 {
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 1000px;
+}
+
+th {
+  background-color: #eeeeee;
+  border: 1px solid #555555;
+  padding: 10px;
+  text-align: center;
+  font-weight: bold;
+}
+
+td {
+  border: 1px solid #555555;
+  padding: 10px;
+  text-align: center;
+}
+
+.total-row {
+  font-weight: bold;
+  background-color: #eeeeee;
+}
+
+</style>
+</head>
+
+<body>
+
+<h2>Decommission Status Report</h2>
+
+<table>
+
+<tr>
+  <th>Phase</th>
+  <th>BM(ESX)</th>
+  <th>BM(Non-ESX)</th>
+  <th>Network Device</th>
+  <th>TOTAL</th>
+</tr>
+`;
+
+
+// Add P0-P3 and Scrap
+for (const phase of phases) {
+
+  const r = data[phase];
+
+  html += `
+<tr>
+  <td>${r.Phase}</td>
+  <td>${r['BM(ESX)']}</td>
+  <td>${r['BM(Non-ESX)']}</td>
+  <td>${r['Network Device']}</td>
+  <td>${r.TOTAL}</td>
+</tr>
+`;
+}
+
+
+// Add TOTAL row
+html += `
+<tr class="total-row">
+  <td>TOTAL</td>
+  <td>${grandTotal['BM(ESX)']}</td>
+  <td>${grandTotal['BM(Non-ESX)']}</td>
+  <td>${grandTotal['Network Device']}</td>
+  <td>${grandTotal.TOTAL}</td>
+</tr>
+
+</table>
+
+<br>
+
+<p>Regards,<br>
+GSI team</p>
+
+</body>
+</html>
+`;
+
+
+// ==========================================
+// RETURN ONLY ONE N8N ITEM
+// ==========================================
+
+return [
+  {
+    json: {
+      emailHtml: html,
+
+      // Optional: keep consolidated data available
+      report: [
+        ...phases.map(p => data[p]),
+        grandTotal
+      ]
+    }
+  }
+];
