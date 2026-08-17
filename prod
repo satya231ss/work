@@ -1,0 +1,120 @@
+const phaseSources = [
+  { phase: 'P2', node: 'P2 data' },
+  { phase: 'P3', node: 'P3 data' },
+  { phase: 'Scrap', node: 'P3 data1' }
+];
+
+const sites = {};
+
+// Function to find SITE regardless of column-case/name
+function getSite(row) {
+  const possibleFields = [
+    'SITE',
+    'site',
+    'Site',
+    'site_code',
+    'SITE_CODE',
+    'sitecode',
+    'hostname',
+    'HOSTNAME'
+  ];
+
+  for (const field of possibleFields) {
+    if (
+      row[field] !== undefined &&
+      row[field] !== null &&
+      String(row[field]).trim() !== ''
+    ) {
+      return String(row[field]).trim();
+    }
+  }
+
+  return '';
+}
+
+
+// Process each phase
+for (const source of phaseSources) {
+
+  const items = $(source.node).all();
+
+  for (const item of items) {
+
+    const row = item.json;
+
+    const site = getSite(row);
+
+    if (!site) {
+      continue;
+    }
+
+    // Create site if it doesn't exist
+    if (!sites[site]) {
+      sites[site] = {
+        SITE: site,
+        P2: 0,
+        P3: 0,
+        Scrap: 0,
+        Total: 0
+      };
+    }
+
+    // Count phase
+    if (source.phase === 'P2') {
+      sites[site].P2++;
+    }
+
+    if (source.phase === 'P3') {
+      sites[site].P3++;
+    }
+
+    if (source.phase === 'Scrap') {
+      sites[site].Scrap++;
+    }
+
+    // Total
+    sites[site].Total++;
+  }
+}
+
+
+// Convert to array
+const report = Object.values(sites)
+  .sort((a, b) => a.SITE.localeCompare(b.SITE));
+
+
+// Calculate totals
+const totalP2 = report.reduce(
+  (sum, row) => sum + row.P2,
+  0
+);
+
+const totalP3 = report.reduce(
+  (sum, row) => sum + row.P3,
+  0
+);
+
+const totalScrap = report.reduce(
+  (sum, row) => sum + row.Scrap,
+  0
+);
+
+const grandTotal = report.reduce(
+  (sum, row) => sum + row.Total,
+  0
+);
+
+
+// Return ONE item
+return [
+  {
+    json: {
+      report: report,
+      totalP2: totalP2,
+      totalP3: totalP3,
+      totalScrap: totalScrap,
+      grandTotal: grandTotal,
+      reportDate: new Date().toLocaleString('en-IN')
+    }
+  }
+];
