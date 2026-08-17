@@ -1,0 +1,70 @@
+// Consolidate all SITE records by PHASE
+
+const phaseOrder = ['P0', 'P1', 'P2', 'P3', 'Scrap'];
+
+const result = {};
+
+// Initialize phases
+for (const phase of phaseOrder) {
+  result[phase] = {
+    'Phase': phase,
+    'BM(ESX)': 0,
+    'BM(Non-ESX)': 0,
+    'Network Device': 0,
+    'TOTAL': 0
+  };
+}
+
+// Read all input items
+for (const item of $input.all()) {
+
+  const row = item.json;
+
+  const phase = String(row.PHASE || row.Phase || '').trim();
+
+  // Ignore unexpected phases
+  if (!result[phase]) {
+    continue;
+  }
+
+  const bmEsx = Number(row['BM(ESX)'] || 0);
+  const bmNonEsx = Number(row['BM(Non-ESX)'] || 0);
+  const networkDevice = Number(row['Network Device'] || 0);
+
+  result[phase]['BM(ESX)'] += bmEsx;
+  result[phase]['BM(Non-ESX)'] += bmNonEsx;
+  result[phase]['Network Device'] += networkDevice;
+
+  // Calculate TOTAL from the three columns
+  result[phase]['TOTAL'] =
+    result[phase]['BM(ESX)'] +
+    result[phase]['BM(Non-ESX)'] +
+    result[phase]['Network Device'];
+}
+
+// Create final TOTAL row
+const grandTotal = {
+  'Phase': 'TOTAL',
+  'BM(ESX)': 0,
+  'BM(Non-ESX)': 0,
+  'Network Device': 0,
+  'TOTAL': 0
+};
+
+for (const phase of phaseOrder) {
+
+  grandTotal['BM(ESX)'] += result[phase]['BM(ESX)'];
+  grandTotal['BM(Non-ESX)'] += result[phase]['BM(Non-ESX)'];
+  grandTotal['Network Device'] += result[phase]['Network Device'];
+  grandTotal['TOTAL'] += result[phase]['TOTAL'];
+}
+
+// Return only 6 rows
+return [
+  ...phaseOrder.map(phase => ({
+    json: result[phase]
+  })),
+  {
+    json: grandTotal
+  }
+];
