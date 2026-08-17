@@ -1,0 +1,58 @@
+const rows = $input.all().map(item => item.json);
+
+const sites = {};
+
+for (const row of rows) {
+
+  const site = String(
+    row.SITE ??
+    row.site ??
+    row.site_code ??
+    ''
+  ).trim();
+
+  if (!site) continue;
+
+  const phase = String(
+    row.Phase ??
+    row.phase ??
+    ''
+  ).trim();
+
+  if (!sites[site]) {
+    sites[site] = {
+      SITE: site,
+      P2: 0,
+      P3: 0,
+      Scrap: 0,
+      Total: 0
+    };
+  }
+
+  const count = Number(
+    row.TOTAL ??
+    row.total ??
+    1
+  );
+
+  if (phase === 'P2') {
+    sites[site].P2 += count;
+  }
+
+  else if (phase === 'P3') {
+    sites[site].P3 += count;
+  }
+
+  else if (phase === 'Scrap') {
+    sites[site].Scrap += count;
+  }
+
+  sites[site].Total += count;
+}
+
+const report = Object.values(sites)
+  .sort((a, b) => a.SITE.localeCompare(b.SITE));
+
+return report.map(row => ({
+  json: row
+}));
