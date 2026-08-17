@@ -1,0 +1,211 @@
+const sources = [
+  { node: 'P0 data', phase: 'P0' },
+  { node: 'P1 data', phase: 'P1' },
+  { node: 'P2 data', phase: 'P2' },
+  { node: 'P3 data', phase: 'P3' },
+  { node: 'P3 data1', phase: 'Scrap' }
+];
+
+const phaseOrder = ['P0', 'P1', 'P2', 'P3', 'Scrap'];
+
+const report = {};
+
+// -----------------------------------------------------
+// Create blank row
+// -----------------------------------------------------
+function createRow(site, phase) {
+  return {
+    SITE: site,
+    Phase: phase,
+    'BM(ESX)': 0,
+    'BM(Non-ESX)': 0,
+    'Network Device': 0,
+    TOTAL: 0
+  };
+}
+
+// -----------------------------------------------------
+// Read every SQL node
+// -----------------------------------------------------
+for (const source of sources) {
+
+  let rows = [];
+
+  try {
+    rows = $(source.node).all().map(item => item.json);
+  } catch (error) {
+    rows = [];
+  }
+
+  for (const row of rows) {
+
+    // -----------------------------------------------
+    // Get SITE
+    // -----------------------------------------------
+    const site = String(
+      row.SITE ??
+      row.site ??
+      row.site_code ??
+      row.code ??
+      row.CODE ??
+      ''
+    ).trim();
+
+    if (!site) {
+      continue;
+    }
+
+    const phase = source.phase;
+
+    // Unique key = SITE + PHASE
+    const key = `${site}|${phase}`;
+
+    // Create row if it doesn't exist
+    if (!report[key]) {
+      report[key] = createRow(site, phase);
+    }
+
+    // -----------------------------------------------
+    // OPTION 1:
+    // SQL already returns counts
+    // -----------------------------------------------
+    const esx = Number(
+      row['BM(ESX)'] ??
+      row.bm_esx ??
+      row.BM_ESX ??
+      row.bmEsx ??
+      0
+    );
+
+    const nonEsx = Number(
+      row['BM(Non-ESX)'] ??
+      row.bm_non_esx ??
+      row.BM_NON_ESX ??
+      row.bmNonEsx ??
+      0
+    );
+
+    const network = Number(
+      row['Network Device'] ??
+      row.network_device ??
+      row.NETWORK_DEVICE ??
+      row.network ??
+      0
+    );
+
+    // If SQL already gives counts
+    if (esx || nonEsx || network) {
+
+      report[key]['BM(ESX)'] += esx;
+
+      report[key]['BM(Non-ESX)'] += nonEsx;
+
+      report[key]['Network Device'] += network;
+
+      report[key].TOTAL =
+        report[key]['BM(ESX)'] +
+        report[key]['BM(Non-ESX)'] +
+        report[key]['Network Device'];
+
+      continue;
+    }
+
+    // -----------------------------------------------
+    // OPTION 2:
+    // SQL returns individual machine records
+    // -----------------------------------------------
+
+    const machineType = String(
+      row.machine_type ??
+      row.MACHINE_TYPE ??
+      row.device_type ??
+      row.DEVICE_TYPE ??
+      row.type ??
+      row.TYPE ??
+      ''
+    ).trim().toLowerCase();
+
+    // BM ESX
+    if (
+      machineType === 'esx' ||
+      machineType.includes('bm(esx)') ||
+      machineType.includes('bm esx') ||
+      machineType === 'bm_esx'
+    ) {
+
+      report[key]['BM(ESX)']++;
+
+    }
+
+    // BM Non-ESX
+    else if (
+      machineType.includes('non-esx') ||
+      machineType.includes('non esx') ||
+      machineType.includes('non_esx') ||
+      machineType.includes('bm(non-esx)')
+    ) {
+
+      report[key]['BM(Non-ESX)']++;
+
+    }
+
+    // Network Device
+    else if (
+      machineType.includes('network')
+    ) {
+
+      report[key]['Network Device']++;
+    }
+
+    // Calculate TOTAL
+    report[key].TOTAL =
+      report[key]['BM(ESX)'] +
+      report[key]['BM(Non-ESX)'] +
+      report[key]['Network Device'];
+  }
+}
+
+
+// -----------------------------------------------------
+// Find all unique sites
+// -----------------------------------------------------
+const sites = [
+  ...new Set(
+    Object.values(report).map(row => row.SITE)
+  )
+].sort();
+
+
+// -----------------------------------------------------
+// Create ALL phases for EVERY site
+// -----------------------------------------------------
+const output = [];
+
+for (const site of sites) {
+
+  for (const phase of phaseOrder) {
+
+    const key = `${site}|${phase}`;
+
+    if (report[key]) {
+
+      output.push({
+        json: report[key]
+      });
+
+    } else {
+
+      // Create zero row if no records exist
+      output.push({
+        json: createRow(site, phase)
+      });
+
+    }
+  }
+}
+
+
+// -----------------------------------------------------
+// Return site-wise data
+// -----------------------------------------------------
+return output;
