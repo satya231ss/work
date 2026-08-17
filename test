@@ -1,36 +1,28 @@
-// Get ALL incoming items at once
 const items = $input.all();
 
-// Collect all rows
-let report = [];
+const result = {};
 
 for (const item of items) {
 
-  const data = item.json;
+  const row = item.json;
 
-  // If Consolidated node sends an array called report
-  if (Array.isArray(data.report)) {
-    report.push(...data.report);
-  }
-
-  // If the item itself is a report row
-  else if (data.SITE) {
-    report.push(data);
-  }
-}
-
-
-// Remove duplicate SITE rows if required
-const siteMap = {};
-
-for (const row of report) {
-
-  const site = String(row.SITE || '').trim();
+  const site = String(
+    row.SITE ??
+    row.site ??
+    row.site_code ??
+    ''
+  ).trim();
 
   if (!site) continue;
 
-  if (!siteMap[site]) {
-    siteMap[site] = {
+  const phase = String(
+    row.Phase ??
+    row.phase ??
+    ''
+  ).trim();
+
+  if (!result[site]) {
+    result[site] = {
       SITE: site,
       P2: 0,
       P3: 0,
@@ -39,203 +31,29 @@ for (const row of report) {
     };
   }
 
-  siteMap[site].P2 += Number(row.P2 || 0);
-  siteMap[site].P3 += Number(row.P3 || 0);
-  siteMap[site].Scrap += Number(row.Scrap || 0);
-  siteMap[site].Total += Number(row.Total || 0);
-}
+  const total = Number(
+    row.TOTAL ??
+    row.total ??
+    1
+  );
 
-
-report = Object.values(siteMap)
-  .sort((a, b) => a.SITE.localeCompare(b.SITE));
-
-
-// Grand totals
-const totalP2 = report.reduce(
-  (sum, row) => sum + row.P2,
-  0
-);
-
-const totalP3 = report.reduce(
-  (sum, row) => sum + row.P3,
-  0
-);
-
-const totalScrap = report.reduce(
-  (sum, row) => sum + row.Scrap,
-  0
-);
-
-const grandTotal = report.reduce(
-  (sum, row) => sum + row.Total,
-  0
-);
-
-
-// Create table rows
-let rows = '';
-
-for (const row of report) {
-
-  rows += `
-    <tr>
-      <td>${row.SITE}</td>
-      <td>${row.P2}</td>
-      <td>${row.P3}</td>
-      <td>${row.Scrap}</td>
-      <td><b>${row.Total}</b></td>
-    </tr>
-  `;
-}
-
-
-// Create ONE email
-const html = `
-<html>
-<body style="font-family:Arial,Helvetica,sans-serif;">
-
-<h2>Server Phase Status Report</h2>
-
-<p>
-<b>Report generated:</b>
-${new Date().toLocaleString('en-IN')}
-</p>
-
-<table style="
-    border-collapse:collapse;
-    width:100%;
-    font-family:Arial;
-    font-size:14px;
-">
-
-<thead>
-
-<tr>
-
-<th style="
-    border:1px solid #777;
-    padding:10px;
-    background:#d9eaf7;
-">
-SITE
-</th>
-
-<th style="
-    border:1px solid #777;
-    padding:10px;
-    background:#d9eaf7;
-">
-Phase 2<br>
-(data wipe) and Nlyte
-</th>
-
-<th style="
-    border:1px solid #777;
-    padding:10px;
-    background:#d9eaf7;
-">
-Phase 3<br>
-(remove DNS and Intersight)
-</th>
-
-<th style="
-    border:1px solid #777;
-    padding:10px;
-    background:#d9eaf7;
-">
-Scrap
-</th>
-
-<th style="
-    border:1px solid #777;
-    padding:10px;
-    background:#d9eaf7;
-">
-Total
-</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-${rows}
-
-<tr>
-
-<td style="
-    border:1px solid #777;
-    padding:10px;
-    font-weight:bold;
-    background:#eeeeee;
-">
-GRAND TOTAL
-</td>
-
-<td style="
-    border:1px solid #777;
-    padding:10px;
-    text-align:center;
-    font-weight:bold;
-    background:#eeeeee;
-">
-${totalP2}
-</td>
-
-<td style="
-    border:1px solid #777;
-    padding:10px;
-    text-align:center;
-    font-weight:bold;
-    background:#eeeeee;
-">
-${totalP3}
-</td>
-
-<td style="
-    border:1px solid #777;
-    padding:10px;
-    text-align:center;
-    font-weight:bold;
-    background:#eeeeee;
-">
-${totalScrap}
-</td>
-
-<td style="
-    border:1px solid #777;
-    padding:10px;
-    text-align:center;
-    font-weight:bold;
-    background:#eeeeee;
-">
-${grandTotal}
-</td>
-
-</tr>
-
-</tbody>
-
-</table>
-
-<br>
-
-Regards,<br>
-Automation Team
-
-</body>
-</html>
-`;
-
-
-// VERY IMPORTANT:
-// Return exactly ONE item
-return [
-  {
-    json: {
-      subject: `Server Phase Status Report - ${new Date().toLocaleDateString('en-IN')}`,
-      html: html
-    }
+  if (phase === 'P2') {
+    result[site].P2 += total;
   }
-];
+
+  if (phase === 'P3') {
+    result[site].P3 += total;
+  }
+
+  if (phase === 'Scrap') {
+    result[site].Scrap += total;
+  }
+
+  result[site].Total += total;
+}
+
+return Object.values(result)
+  .sort((a, b) => a.SITE.localeCompare(b.SITE))
+  .map(row => ({
+    json: row
+  }));
