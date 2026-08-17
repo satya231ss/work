@@ -1,0 +1,205 @@
+const inputItems = $input.all();
+
+const phases = ['P0', 'P1', 'P2', 'P3', 'Scrap'];
+
+const data = {};
+
+for (const phase of phases) {
+  data[phase] = {
+    phase: phase,
+    bmEsx: 0,
+    bmNonEsx: 0,
+    network: 0
+  };
+}
+
+// Function to find a field regardless of upper/lower case
+function getValue(obj, names) {
+  for (const name of names) {
+    const key = Object.keys(obj).find(
+      k => k.trim().toLowerCase() === name.trim().toLowerCase()
+    );
+
+    if (key !== undefined) {
+      return obj[key];
+    }
+  }
+
+  return 0;
+}
+
+// Process every input record
+for (const item of inputItems) {
+
+  const row = item.json;
+
+  const phaseValue = getValue(row, [
+    'PHASE',
+    'Phase',
+    'phase'
+  ]);
+
+  const phase = String(phaseValue).trim();
+
+  if (!data[phase]) {
+    continue;
+  }
+
+  const bmEsx = Number(
+    getValue(row, [
+      'BM(ESX)',
+      'BM (ESX)',
+      'BM_ESX'
+    ])
+  ) || 0;
+
+  const bmNonEsx = Number(
+    getValue(row, [
+      'BM(Non-ESX)',
+      'BM (Non-ESX)',
+      'BM_Non_ESX'
+    ])
+  ) || 0;
+
+  const network = Number(
+    getValue(row, [
+      'Network Device',
+      'NetworkDevice',
+      'NETWORK DEVICE'
+    ])
+  ) || 0;
+
+  data[phase].bmEsx += bmEsx;
+  data[phase].bmNonEsx += bmNonEsx;
+  data[phase].network += network;
+}
+
+
+// Calculate totals
+const report = [];
+
+let totalEsx = 0;
+let totalNonEsx = 0;
+let totalNetwork = 0;
+
+for (const phase of phases) {
+
+  const r = data[phase];
+
+  const total =
+    r.bmEsx +
+    r.bmNonEsx +
+    r.network;
+
+  report.push({
+    Phase: r.phase,
+    'BM(ESX)': r.bmEsx,
+    'BM(Non-ESX)': r.bmNonEsx,
+    'Network Device': r.network,
+    TOTAL: total
+  });
+
+  totalEsx += r.bmEsx;
+  totalNonEsx += r.bmNonEsx;
+  totalNetwork += r.network;
+}
+
+const grandTotal =
+  totalEsx +
+  totalNonEsx +
+  totalNetwork;
+
+report.push({
+  Phase: 'TOTAL',
+  'BM(ESX)': totalEsx,
+  'BM(Non-ESX)': totalNonEsx,
+  'Network Device': totalNetwork,
+  TOTAL: grandTotal
+});
+
+
+// Create ONE HTML table
+let html = `
+<h2>Decommission Status Report</h2>
+
+<table style="
+border-collapse:collapse;
+width:100%;
+font-family:Arial;
+font-size:14px;
+">
+
+<tr>
+<th style="border:1px solid #555;padding:10px;background:#eeeeee;">
+Phase
+</th>
+
+<th style="border:1px solid #555;padding:10px;background:#eeeeee;">
+BM(ESX)
+</th>
+
+<th style="border:1px solid #555;padding:10px;background:#eeeeee;">
+BM(Non-ESX)
+</th>
+
+<th style="border:1px solid #555;padding:10px;background:#eeeeee;">
+Network Device
+</th>
+
+<th style="border:1px solid #555;padding:10px;background:#eeeeee;">
+TOTAL
+</th>
+</tr>
+`;
+
+for (const r of report) {
+
+  const isTotal = r.Phase === 'TOTAL';
+
+  html += `
+<tr ${isTotal ? 'style="font-weight:bold;background:#eeeeee;"' : ''}>
+
+<td style="border:1px solid #555;padding:10px;text-align:center;">
+${r.Phase}
+</td>
+
+<td style="border:1px solid #555;padding:10px;text-align:center;">
+${r['BM(ESX)']}
+</td>
+
+<td style="border:1px solid #555;padding:10px;text-align:center;">
+${r['BM(Non-ESX)']}
+</td>
+
+<td style="border:1px solid #555;padding:10px;text-align:center;">
+${r['Network Device']}
+</td>
+
+<td style="border:1px solid #555;padding:10px;text-align:center;">
+${r.TOTAL}
+</td>
+
+</tr>
+`;
+}
+
+html += `
+</table>
+
+<br>
+
+<p>Regards,<br>
+GSI team</p>
+`;
+
+
+// IMPORTANT:
+// Return ONLY ONE n8n ITEM
+return [
+  {
+    json: {
+      report: report,
+      emailHtml: html
+    }
+  }
+];
